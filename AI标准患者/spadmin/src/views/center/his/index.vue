@@ -7,8 +7,8 @@
 
     <div class="controls">
       <div class="search-box">
-        <input type="text" placeholder="搜索案例编号或疾病类型..." v-model="searchQuery">
-        <i class="icon-search"></i>
+        <input type="text" placeholder="搜索会话ID或疾病类型..." v-model="searchQuery">
+        <i class="icon-search">🔍</i>
       </div>
       <div class="filter-group">
         <select v-model="diseaseFilter">
@@ -25,7 +25,12 @@
     </div>
 
     <div class="table-container">
-      <table class="history-table">
+      <div v-if="loading" class="loading-container">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        <span style="margin-left: 10px;">加载中...</span>
+      </div>
+      
+      <table v-else class="history-table">
         <thead>
           <tr>
             <th v-for="column in columns" :key="column.key" :class="column.key">
@@ -35,22 +40,23 @@
         </thead>
         <tbody>
           <tr v-for="record in filteredRecords" :key="record.id">
-            <td class="case-id">{{ record.caseId }}</td>
-            <td class="disease-type">{{ record.diseaseType }}</td>
-            <td class="time">{{ record.time }}</td>
-            <td class="duration">{{ record.duration }}</td>
+            <td class="case-id">{{ record.sessionId }}</td>
+            <td class="disease-type">{{ record.diseaseType || '未知' }}</td>
+            <td class="time">{{ formatDate(record.createdAt) }}</td>
+            <td class="duration">{{ record.duration || '未知' }}</td>
             <td class="score">
-              <span :class="getScoreClass(record.score)">{{ record.score }}</span>
+              <span :class="getScoreClass(record.score)">{{ record.score || '无' }}</span>
             </td>
             <td class="actions">
               <button class="detail-btn" @click="viewDetails(record)">详情</button>
+              <button class="detail-btn" @click="viewReport(record)" style="margin-left: 5px;">报告</button>
             </td>
           </tr>
         </tbody>
       </table>
       
-      <div v-if="filteredRecords.length === 0" class="no-data">
-        <i class="icon-no-data"></i>
+      <div v-if="!loading && filteredRecords.length === 0" class="no-data">
+        <i class="icon-no-data">📝</i>
         <p>暂无历史记录</p>
       </div>
     </div>
@@ -59,7 +65,7 @@
     <div v-if="showDetailDialog" class="dialog-overlay" @click.self="closeDialog">
       <div class="detail-dialog">
         <div class="dialog-header">
-          <h2>案例详情 - {{ selectedRecord.caseId }}</h2>
+          <h2>会话详情 - {{ selectedRecord.sessionId }}</h2>
           <button class="close-btn" @click="closeDialog">&times;</button>
         </div>
         <div class="dialog-content">
@@ -67,54 +73,40 @@
             <h3>基本信息</h3>
             <div class="detail-grid">
               <div class="detail-item">
-                <label>疾病类型：</label>
-                <span>{{ selectedRecord.diseaseType }}</span>
+                <label>会话ID：</label>
+                <span>{{ selectedRecord.sessionId }}</span>
               </div>
               <div class="detail-item">
-                <label>练习时间：</label>
-                <span>{{ selectedRecord.time }}</span>
+                <label>疾病类型：</label>
+                <span>{{ selectedRecord.diseaseType || '未知' }}</span>
+              </div>
+              <div class="detail-item">
+                <label>创建时间：</label>
+                <span>{{ formatDate(selectedRecord.createdAt) }}</span>
               </div>
               <div class="detail-item">
                 <label>用时：</label>
-                <span>{{ selectedRecord.duration }}</span>
+                <span>{{ selectedRecord.duration || '未知' }}</span>
               </div>
               <div class="detail-item">
                 <label>得分：</label>
-                <span :class="getScoreClass(selectedRecord.score)">{{ selectedRecord.score }}</span>
+                <span :class="getScoreClass(selectedRecord.score)">{{ selectedRecord.score || '无' }}</span>
+              </div>
+              <div class="detail-item">
+                <label>状态：</label>
+                <span>{{ selectedRecord.status || '未知' }}</span>
               </div>
             </div>
           </div>
           
-          <div class="detail-section">
-            <h3>评分详情</h3>
-            <div class="score-details">
-              <div class="score-item">
-                <label>病史采集完整性：</label>
-                <div class="score-bar">
-                  <div class="score-fill" :style="{width: selectedRecord.details.historyScore + '%'}"></div>
-                </div>
-                <span>{{ selectedRecord.details.historyScore }}%</span>
-              </div>
-              <div class="score-item">
-                <label>医学逻辑性评估：</label>
-                <div class="score-bar">
-                  <div class="score-fill" :style="{width: selectedRecord.details.logicScore + '%'}"></div>
-                </div>
-                <span>{{ selectedRecord.details.logicScore }}%</span>
-              </div>
-              <div class="score-item">
-                <label>沟通与人文关怀：</label>
-                <div class="score-bar">
-                  <div class="score-fill" :style="{width: selectedRecord.details.communicationScore + '%'}"></div>
-                </div>
-                <span>{{ selectedRecord.details.communicationScore }}%</span>
+          <div class="detail-section" v-if="sessionInfo">
+            <h3>会话信息</h3>
+            <div class="detail-grid">
+              <div class="detail-item" v-for="(value, key) in sessionInfo" :key="key">
+                <label>{{ key }}：</label>
+                <span>{{ value }}</span>
               </div>
             </div>
-          </div>
-          
-          <div class="detail-section">
-            <h3>诊断说明</h3>
-            <p class="diagnosis">{{ selectedRecord.details.diagnosis }}</p>
           </div>
         </div>
         <div class="dialog-footer">
@@ -122,141 +114,231 @@
         </div>
       </div>
     </div>
+
+    <!-- 报告对话框 -->
+    <div v-if="showReportDialog" class="dialog-overlay" @click.self="closeReportDialog">
+      <div class="detail-dialog">
+        <div class="dialog-header">
+          <h2>评分报告 - {{ selectedRecord.sessionId }}</h2>
+          <button class="close-btn" @click="closeReportDialog">&times;</button>
+        </div>
+        <div class="dialog-content">
+          <div class="detail-section">
+            <h3>评分详情</h3>
+            <div class="report-content">
+              {{ reportContent }}
+            </div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn-primary" @click="closeReportDialog">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'HistoryPage',
-  data() {
-    return {
-      searchQuery: '',
-      diseaseFilter: '',
-      timeFilter: '',
-      showDetailDialog: false,
-      selectedRecord: null,
-      columns: [
-        { key: 'caseId', title: '案例编号' },
-        { key: 'diseaseType', title: '疾病类型' },
-        { key: 'time', title: '时间' },
-        { key: 'duration', title: '用时' },
-        { key: 'score', title: '得分' },
-        { key: 'actions', title: '' }
-      ],
-      records: [
-        {
-          id: 1,
-          caseId: '000001',
-          diseaseType: '脑梗塞',
-          time: '2025-8-11 9:00',
-          duration: '10min',
-          score: 62,
-          details: {
-            historyScore: 70,
-            logicScore: 60,
-            communicationScore: 55,
-            diagnosis: '患者表现为突发性右侧肢体无力，伴有言语不清。CT显示左侧大脑中动脉供血区低密度影。诊断为急性脑梗塞，建议立即进行溶栓治疗。'
-          }
-        },
-        {
-          id: 2,
-          caseId: '000002',
-          diseaseType: '头痛',
-          time: '2025-8-12 10:00',
-          duration: '5min',
-          score: 70,
-          details: {
-            historyScore: 75,
-            logicScore: 65,
-            communicationScore: 70,
-            diagnosis: '患者表现为持续性额部搏动性头痛，无恶心呕吐，无神经系统阳性体征。考虑为紧张性头痛，建议休息和非甾体抗炎药治疗。'
-          }
-        },
-        {
-          id: 3,
-          caseId: '000003',
-          diseaseType: '头晕',
-          time: '2025-8-13 10:00',
-          duration: '15min',
-          score: 80,
-          details: {
-            historyScore: 85,
-            logicScore: 75,
-            communicationScore: 80,
-            diagnosis: '患者表现为体位改变时出现的眩晕，伴有恶心。Dix-Hallpike试验阳性。诊断为良性阵发性位置性眩晕，建议进行Epley手法复位。'
-          }
-        }
-      ]
+<script setup>
+import { ref, computed, onMounted } from 'vue';
+import { ElMessage, ElIcon, ElLoading } from 'element-plus';
+import axios from 'axios';
+
+const apiBaseUrl = 'http://localhost:5000/api';
+
+const searchQuery = ref('');
+const diseaseFilter = ref('');
+const timeFilter = ref('');
+const showDetailDialog = ref(false);
+const showReportDialog = ref(false);
+const selectedRecord = ref(null);
+const sessions = ref([]);
+const sessionInfo = ref(null);
+const reportContent = ref('');
+const loading = ref(true);
+
+const columns = [
+  { key: 'sessionId', title: '会话ID' },
+  { key: 'diseaseType', title: '疾病类型' },
+  { key: 'time', title: '时间' },
+  { key: 'duration', title: '用时' },
+  { key: 'score', title: '得分' },
+  { key: 'actions', title: '' }
+];
+
+// 获取所有会话
+const fetchSessions = async () => {
+  try {
+    loading.value = true;
+    const response = await axios.get(`${apiBaseUrl}/sp/sessions`);
+    if (response.data.success) {
+      sessions.value = response.data.data.sessions;
+    } else {
+      ElMessage.error('获取会话列表失败: ' + response.data.message);
     }
-  },
-  computed: {
-    diseaseTypes() {
-      return [...new Set(this.records.map(record => record.diseaseType))];
-    },
-    filteredRecords() {
-      let filtered = this.records;
-      
-      // 搜索过滤
-      if (this.searchQuery) {
-        const query = this.searchQuery.toLowerCase();
-        filtered = filtered.filter(record => 
-          record.caseId.toLowerCase().includes(query) || 
-          record.diseaseType.toLowerCase().includes(query)
-        );
-      }
-      
-      // 疾病类型过滤
-      if (this.diseaseFilter) {
-        filtered = filtered.filter(record => record.diseaseType === this.diseaseFilter);
-      }
-      
-      // 时间过滤
-      if (this.timeFilter) {
-        const now = new Date();
-        filtered = filtered.filter(record => {
-          const recordDate = new Date(record.time.replace(/-/g, '/'));
-          
-          switch (this.timeFilter) {
-            case 'today':
-              return recordDate.toDateString() === now.toDateString();
-            case 'week':
-              const weekStart = new Date(now);
-              weekStart.setDate(now.getDate() - now.getDay());
-              weekStart.setHours(0, 0, 0, 0);
-              return recordDate >= weekStart;
-            case 'month':
-              return recordDate.getMonth() === now.getMonth() && 
-                     recordDate.getFullYear() === now.getFullYear();
-            default:
-              return true;
-          }
-        });
-      }
-      
-      return filtered;
-    }
-  },
-  methods: {
-    getScoreClass(score) {
-      if (score >= 80) return 'score-high';
-      if (score >= 60) return 'score-medium';
-      return 'score-low';
-    },
-    viewDetails(record) {
-      this.selectedRecord = record;
-      this.showDetailDialog = true;
-    },
-    closeDialog() {
-      this.showDetailDialog = false;
-    }
+  } catch (error) {
+    console.error('获取会话列表出错:', error);
+    ElMessage.error('获取会话列表出错: ' + error.message);
+  } finally {
+    loading.value = false;
   }
-}
+};
+
+// 获取会话信息
+const fetchSessionInfo = async (sessionId) => {
+  try {
+    const response = await axios.get(`${apiBaseUrl}/sp/session/${sessionId}/info`);
+    if (response.data.success) {
+      // 确保合并默认结构，避免undefined属性
+      sessionInfo.value = {
+        ...sessionInfo.value,
+        ...response.data.data
+      };
+    } else {
+      ElMessage.error('获取会话信息失败: ' + response.data.message);
+    }
+  } catch (error) {
+    console.error('获取会话信息出错:', error);
+    ElMessage.error('获取会话信息出错: ' + error.message);
+  }
+};
+
+// 获取评分报告
+const fetchScoringReport = async (sessionId) => {
+  try {
+    const response = await axios.get(`${apiBaseUrl}/scoring/report/${sessionId}`);
+    const scoreSummary = await axios.get(`${apiBaseUrl}/scoring/summary/${sessionId}`);
+    
+    if (response.data.success && scoreSummary.data.success) {
+      const data = scoreSummary.data.data;
+      let output = '';
+
+      // 问诊统计
+      output += `已问问题数量: ${data.asked_questions}\n`;
+      output += `已问问题权重: ${data.asked_weight}\n\n`;
+
+      // 分类统计
+      if (data.category_stats && data.category_stats.general) {
+        const general = data.category_stats.general;
+        output += `已问问题数量: ${general.asked_questions}\n`;
+        output += `已问问题权重: ${general.asked_weight}\n`;
+        output += `完成率: ${general.completion_rate}%\n`;
+        output += `总问题数: ${general.total_questions}\n`;
+        output += `总权重: ${general.total_weight}\n\n`;
+      }
+
+      // 评价信息
+      if (data.evaluation) {
+        output += `评语: ${data.evaluation.comment}\n`;
+        output += `等级: ${data.evaluation.level}\n\n`;
+      }
+
+      // 总体统计
+      output += `完成百分比: ${data.percentage}%\n`;
+      output += `总问题数: ${data.total_questions}\n`;
+      output += `总得分: ${data.total_score}\n`;
+      output += `总权重: ${data.total_weight}`;
+      
+      reportContent.value = output;
+    } else {
+      ElMessage.error('获取评分报告失败');
+    }
+  } catch (error) {
+    console.error('获取评分报告出错:', error);
+    ElMessage.error('获取评分报告出错: ' + error.message);
+  }
+};
+
+const diseaseTypes = computed(() => {
+  return [...new Set(sessions.value.map(session => session.diseaseType))].filter(Boolean);
+});
+
+const filteredRecords = computed(() => {
+  let filtered = sessions.value;
+  
+  // 搜索过滤
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(record => 
+      record.sessionId.toLowerCase().includes(query) || 
+      (record.diseaseType && record.diseaseType.toLowerCase().includes(query))
+    );
+  }
+  
+  // 疾病类型过滤
+  if (diseaseFilter.value) {
+    filtered = filtered.filter(record => record.diseaseType === diseaseFilter.value);
+  }
+  
+  // 时间过滤
+  if (timeFilter.value) {
+    const now = new Date();
+    filtered = filtered.filter(record => {
+      const recordDate = new Date(record.createdAt);
+      
+      switch (timeFilter.value) {
+        case 'today':
+          return recordDate.toDateString() === now.toDateString();
+        case 'week':
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() - now.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+          return recordDate >= weekStart;
+        case 'month':
+          return recordDate.getMonth() === now.getMonth() && 
+                 recordDate.getFullYear() === now.getFullYear();
+        default:
+          return true;
+      }
+    });
+  }
+  
+  return filtered;
+});
+
+const getScoreClass = (score) => {
+  if (!score) return 'score-low';
+  if (score >= 80) return 'score-high';
+  if (score >= 60) return 'score-medium';
+  return 'score-low';
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '未知';
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN');
+};
+
+const viewDetails = async (record) => {
+  selectedRecord.value = record;
+  await fetchSessionInfo(record.sessionId);
+  showDetailDialog.value = true;
+};
+
+const viewReport = async (record) => {
+  selectedRecord.value = record;
+  await fetchScoringReport(record.sessionId);
+  showReportDialog.value = true;
+};
+
+const closeDialog = () => {
+  showDetailDialog.value = false;
+  sessionInfo.value = null;
+};
+
+const closeReportDialog = () => {
+  showReportDialog.value = false;
+  reportContent.value = '';
+};
+
+onMounted(() => {
+  fetchSessions();
+});
 </script>
 
-<style lang="less" scoped>
+<style scoped>
 .history-container {
   font-family: 'Helvetica Neue', Arial, sans-serif;
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
   color: #333;
@@ -565,18 +647,23 @@ export default {
   background-color: #2980b9;
 }
 
-/* 图标样式 */
-.icon-history:before {
-  content: "📊";
-  margin-right: 10px;
+.report-content {
+  white-space: pre-wrap;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  font-family: monospace;
+  line-height: 1.5;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.icon-search:before {
-  content: "🔍";
-}
-
-.icon-no-data:before {
-  content: "📝";
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
 }
 
 /* 响应式设计 */

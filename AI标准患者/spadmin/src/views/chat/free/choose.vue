@@ -4,7 +4,7 @@
       <h1>AI标准化病人系统</h1>
       <el-button type="primary" @click="fetchSessions">刷新会话</el-button>
     </div>
-
+    
     <div class="card-container">
       <!-- 左侧：会话和预设病例 -->
       <el-card>
@@ -14,9 +14,9 @@
             <el-button type="primary" size="small" @click="fetchSessions">刷新</el-button>
           </div>
         </template>
-
+        
         <div class="session-list">
-          <div v-for="session in sessions" :key="session.session_id"
+          <div v-for="session in sessions" :key="session.session_id" 
             :class="['session-item', { 'active-session': session.session_id === activeSessionId }]"
             @click="selectSession(session.session_id)"
             style="padding: 10px; border-bottom: 1px solid #ebeef5; cursor: pointer;">
@@ -33,71 +33,94 @@
           </div>
         </div>
       </el-card>
-
+      
       <!-- 中间：聊天区域 -->
       <el-card>
-        <template #header>
-          <div v-if="activeSession">
-            <span>与 {{ activeSession.patient_name }} 对话 - {{ activeSession.disease }}</span>
-          </div>
-          <div v-else>
-            <span>请选择或创建会话</span>
-          </div>
-        </template>
-
-        <div class="chat-container">
-          <div class="chat-messages">
-            <div v-for="(msg, index) in chatMessages" :key="index" class="message-container">
-              <div class="message user-message">
-                <div><strong>医生:</strong> {{ msg.user_message }}</div>
-                <div style="font-size: 12px; color: #909399;">{{ msg.timestamp }}</div>
-              </div>
-              <div class="message sp-message">
-                <div><strong>患者:</strong> {{ msg.sp_response }}</div>
-                <div style="font-size: 12px; color: #909399;">{{ msg.timestamp }}</div>
-              </div>
+      <template #header>
+        <div v-if="activeSession">
+          <span>与 {{ activeSession.patient_name }} 对话 - {{ activeSession.disease }}</span>
+        </div>
+        <div v-else>
+          <span>请选择或创建会话</span>
+        </div>
+      </template>
+      
+      <div class="chat-container">
+        <div class="chat-messages">
+          <div v-for="(msg, index) in chatMessages" :key="index" class="message-container">
+            <div class="message user-message">
+              <div><strong>医生:</strong> {{ msg.user_message }}</div>
+              <div style="font-size: 12px; color: #909399;">{{ msg.timestamp }}</div>
             </div>
-            <div v-if="chatMessages.length === 0" style="text-align: center; padding: 20px; color: #909399;">
-              暂无对话记录
+            <div class="message sp-message">
+              <div><strong>患者:</strong> {{ msg.sp_response }}</div>
+              <div style="font-size: 12px; color: #909399;">{{ msg.timestamp }}</div>
             </div>
           </div>
-
-          <!-- 快速提问按钮 -->
-          <div class="quick-buttons">
-            <el-button size="small" :disabled="!activeSessionId" @click="sendQuickQuestion('基本问诊', '您好，请问您哪里不舒服？')">
-              基本问诊
-            </el-button>
-            <el-button size="small" :disabled="!activeSessionId" @click="sendQuickQuestion('症状时间', '症状持续多长时间了？')">
-              症状时间
-            </el-button>
-            <el-button size="small" :disabled="!activeSessionId" @click="sendQuickQuestion('过敏史', '您有什么过敏史吗？')">
-              过敏史
-            </el-button>
-            <el-button size="small" :disabled="!activeSessionId" @click="sendQuickQuestion('家族史', '您的家族病史如何？')">
-              家族史
-            </el-button>
-          </div>
-
-          <el-input v-model="messageInput" placeholder="输入您的问题..." :disabled="!activeSessionId"
-            @keyup.enter="sendMessage">
-            <template #append>
-              <el-button :disabled="!activeSessionId" @click="sendMessage">发送</el-button>
-            </template>
-          </el-input>
-
-          <!-- 功能按钮 -->
-          <div class="function-buttons">
-            <el-button type="primary" size="small" :disabled="!activeSessionId" @click="requestExamReport">
-              <i class="el-icon-document"></i> 请求检查报告
-            </el-button>
-            <el-button type="success" size="small" :disabled="!activeSessionId" @click="viewScoringReport">
-              <i class="el-icon-data-analysis"></i> 查看评分报告
-            </el-button>
+          <div v-if="chatMessages.length === 0" style="text-align: center; padding: 20px; color: #909399;">
+            暂无对话记录
           </div>
         </div>
-      </el-card>
+        
+        <!-- 快速提问按钮 -->
+        <div class="quick-buttons">
+          <el-button 
+            size="small" 
+            :disabled="!activeSessionId" 
+            @click="sendQuickQuestion('基本问诊', '您好，请问您哪里不舒服？')">
+            基本问诊
+          </el-button>
+          <el-button 
+            size="small" 
+            :disabled="!activeSessionId" 
+            @click="sendQuickQuestion('症状时间', '症状持续多长时间了？')">
+            症状时间
+          </el-button>
+          <el-button 
+            size="small" 
+            :disabled="!activeSessionId" 
+            @click="sendQuickQuestion('过敏史', '您有什么过敏史吗？')">
+            过敏史
+          </el-button>
+          <el-button 
+            size="small" 
+            :disabled="!activeSessionId" 
+            @click="sendQuickQuestion('家族史', '您的家族病史如何？')">
+            家族史
+          </el-button>
+        </div>
+        
+        <el-input
+          v-model="messageInput"
+          placeholder="输入您的问题..."
+          :disabled="!activeSessionId"
+          @keyup.enter="sendMessage">
+          <template #append>
+            <el-button :disabled="!activeSessionId" @click="sendMessage">发送</el-button>
+          </template>
+        </el-input>
+        
+        <!-- 功能按钮 -->
+        <div class="function-buttons">
+          <el-button 
+            type="primary" 
+            size="small" 
+            :disabled="!activeSessionId" 
+            @click="requestExamReport">
+            <i class="el-icon-document"></i> 请求检查报告
+          </el-button>
+          <el-button 
+            type="success" 
+            size="small" 
+            :disabled="!activeSessionId" 
+            @click="viewScoringReport">
+            <i class="el-icon-data-analysis"></i> 查看评分报告
+          </el-button>
+        </div>
+      </div>
+    </el-card>
     </div>
-
+    
     <el-row :gutter="20" style="margin-top: 20px;">
       <!-- 预设病例 -->
       <el-col :span="12">
@@ -105,7 +128,7 @@
           <template #header>
             <span>预设病例</span>
           </template>
-
+          
           <div class="preset-list">
             <el-table :data="presets" height="250">
               <el-table-column prop="name" label="姓名" width="100"></el-table-column>
@@ -124,25 +147,32 @@
           </div>
         </el-card>
       </el-col>
-
+      
       <!-- 自定义SP数据 -->
       <el-col :span="12">
         <el-card>
           <template #header>
             <span>自定义SP数据</span>
           </template>
-
-          <el-input v-model="customSpData" type="textarea" :rows="6" placeholder="请输入SP数据（JSON格式）"
+          
+          <el-input
+            v-model="customSpData"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入SP数据（JSON格式）"
             style="margin-bottom: 10px;">
           </el-input>
-
+          
           <el-button type="primary" @click="validateSpData">验证数据</el-button>
-          <el-button type="success" @click="createRandomSession">随机创建会话</el-button>
-
+          <el-button type="success" @click="createSession()">创建会话</el-button>
+          
           <div v-if="validationResult" style="margin-top: 15px;">
-            <el-alert :title="validationResult.message" :type="validationResult.valid ? 'success' : 'error'" show-icon>
+            <el-alert
+              :title="validationResult.message"
+              :type="validationResult.valid ? 'success' : 'error'"
+              show-icon>
             </el-alert>
-
+            
             <div v-if="validationResult.data_summary" style="margin-top: 10px;">
               <p><strong>患者姓名:</strong> {{ validationResult.data_summary.patient_name }}</p>
               <p><strong>疾病:</strong> {{ validationResult.data_summary.disease }}</p>
@@ -152,13 +182,13 @@
         </el-card>
       </el-col>
     </el-row>
-
+    
     <!-- 会话信息 -->
     <el-card style="margin-top: 20px;" v-if="activeSessionId">
       <template #header>
         <span>会话信息</span>
       </template>
-
+      
       <el-descriptions :column="2" border v-if="sessionInfo.basics">
         <el-descriptions-item label="患者姓名">{{ sessionInfo.basics.name }}</el-descriptions-item>
         <el-descriptions-item label="年龄">{{ sessionInfo.basics.age }}</el-descriptions-item>
@@ -214,8 +244,8 @@ const customSpData = ref(JSON.stringify({
 const validationResult = ref(null);
 
 // API基础URL
-const apiBaseUrl = 'http://localhost:5000/api';
-// 'https://api.bwzhang.cn/api'
+const apiBaseUrl = 'https://api.bwzhang.cn/api';
+
 // 获取预设病例列表
 const fetchPresets = async () => {
   try {
@@ -237,7 +267,7 @@ const createSession = async (presetFile = null) => {
   try {
     const sessionId = `${Date.now()}`;
     const payload = { session_id: sessionId };
-
+    
     if (presetFile) {
       payload.preset_file = presetFile;
     } else {
@@ -248,9 +278,9 @@ const createSession = async (presetFile = null) => {
         return;
       }
     }
-
+    
     const response = await axios.post(`${apiBaseUrl}/sp/session/create`, payload);
-
+    
     if (response.data.success) {
       ElMessage.success('会话创建成功');
       await fetchSessions(); // 刷新会话列表
@@ -264,26 +294,6 @@ const createSession = async (presetFile = null) => {
     console.error('创建会话出错:', error);
     ElMessage.error('创建会话出错: ' + error.message);
   }
-};
-
-// 随机创建会话
-const createRandomSession = async () => {
-  if (presets.value.length === 0) {
-    ElMessage.warning('暂无预设病例，请先获取预设病例');
-    await fetchPresets();
-
-    if (presets.value.length === 0) {
-      ElMessage.error('无法获取预设病例，请检查网络连接');
-      return;
-    }
-  }
-
-  // 随机选择一个预设病例
-  const randomIndex = Math.floor(Math.random() * presets.value.length);
-  const randomPreset = presets.value[randomIndex];
-
-  ElMessage.success(`已随机选择病例: ${randomPreset.name} - ${randomPreset.disease}`);
-  await createSession(randomPreset.filename);
 };
 
 // 获取所有会话
@@ -334,6 +344,8 @@ const fetchChatHistory = async (sessionId) => {
     ElMessage.error('获取聊天历史出错: ' + error.message);
   }
 };
+
+
 
 // 发送消息函数 (使用fetch API)
 const sendMessage = async () => {
@@ -388,6 +400,8 @@ const sendQuickQuestion = async (type, question) => {
   await sendMessage();
 };
 
+
+
 // 请求检查报告
 const requestExamReport = async () => {
   if (!activeSessionId.value) {
@@ -399,10 +413,51 @@ const requestExamReport = async () => {
     const session_Id = String(activeSessionId.value);
     const response = await fetch(`${apiBaseUrl}/sp/session/${session_Id}/exam_report`, {
       method: 'Get'
-
+      
     });
 
     const result = await response.json();
+    // let output = '';
+
+    // // 体格检查部分
+    // output += '=== 体格检查 ===\n\n';
+    // const physical = result.physical_exam;
+
+    // output += `1. 一般情况:\n`;
+    // output += `   - 体温: ${physical.temperature} ℃\n`;
+    // output += `   - 脉搏: ${physical.pulse} 次/分\n`;
+    // output += `   - 呼吸: ${physical.respiration} 次/分\n`;
+    // output += `   - 血压: ${physical.bp} mmHg\n`;
+    // output += `   - 外貌: ${physical.appearance}\n\n`;
+
+    // output += `2. 系统检查:\n`;
+    // output += `   - 心肺: ${physical.heart_lung}\n`;
+    // output += `   - 腹部: ${physical.abdomen}\n`;
+    // output += `   - 肝脏脾脏: ${physical.liver_spleen}\n`;
+    // output += `   - 肾脏: ${physical.kidney}\n`;
+    // output += `   - 四肢: ${physical.legs}\n`;
+    // output += `   - 淋巴结: ${physical.lymph_nodes}\n`;
+    // output += `   - Murphy征: ${physical.merphy}\n\n`;
+
+    // // 辅助检查部分
+    // output += '=== 辅助检查 ===\n\n';
+    // const auxiliary = result.auxiliary_exam;
+
+    // output += `1. 血液检查:\n`;
+    // const blood = auxiliary.blood;
+    // output += `   - 血红蛋白(Hb): ${blood.Hb}\n`;
+    // output += `   - 中性粒细胞比例(N): ${blood.N}\n`;
+    // output += `   - 血小板计数(PLT): ${blood.PLT}\n`;
+    // output += `   - 白细胞计数(WBC): ${blood.WBC}\n\n`;
+
+    // output += `2. 尿液检查:\n`;
+    // const urine = auxiliary.urine;
+    // output += `   - 尿蛋白(PRO): ${urine.PRO}\n`;
+    // output += `   - 红细胞(RBC): ${urine.RBC}\n`;
+    // output += `   - 白细胞(WBC): ${urine.WBC}\n\n`;
+
+    // output += `3. 超声检查:\n`;
+    // output += `   - ${auxiliary.ultrasound}\n`;
     if (result.success) {
       // 将检查报告添加到聊天记录
       chatMessages.value.push({
@@ -431,12 +486,12 @@ const viewScoringReport = async () => {
   try {
     const session_Id = String(activeSessionId.value);
     const response = await fetch(`${apiBaseUrl}/scoring/report/${session_Id}`, {
-      method: 'GET',
+      method: 'GET', 
     });
     const scoreSummary = await fetch(`${apiBaseUrl}/scoring/summary/${session_Id}`, {
-      method: 'GET',
+      method: 'GET', 
     });
-
+    
     const result = await response.json();
     const summary = await scoreSummary.json();
 
@@ -465,7 +520,7 @@ const viewScoringReport = async () => {
       output += `    总问题数: ${data.total_questions}\n`;
       output += `    总得分: ${data.total_score}\n`;
       output += `    总权重: ${data.total_weight}`;
-
+      
       chatMessages.value.push({
         user_message: "查看评分报告",
         sp_response: output,
@@ -486,7 +541,7 @@ const viewScoringReport = async () => {
 const deleteSession = async (sessionId) => {
   try {
     const response = await axios.delete(`${apiBaseUrl}/sp/session/${sessionId}`);
-
+    
     if (response.data.success) {
       ElMessage.success('会话删除成功');
       if (activeSessionId.value === sessionId) {
@@ -509,7 +564,7 @@ const validateSpData = async () => {
   try {
     const data = JSON.parse(customSpData.value);
     const response = await axios.post(`${apiBaseUrl}/sp/data/validate`, data);
-
+    
     if (response.data.success) {
       validationResult.value = response.data.data;
       ElMessage.success('SP数据验证成功');
@@ -612,7 +667,6 @@ const activeSession = computed(() => {
   gap: 8px;
   margin-top: 10px;
 }
-
 .session-list {
   max-height: 400px;
   overflow-y: auto;
@@ -627,3 +681,5 @@ const activeSession = computed(() => {
   overflow-y: auto;
 }
 </style>
+
+
